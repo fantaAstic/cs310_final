@@ -76,6 +76,7 @@ const ZoomableImage = ({ imageSource }) => {
   );
 };
 
+ {/* UI Component */}
 const ModuleCategoryScreen = ({ navigation }) => {
   const [darkMode, setDarkMode] = useState(Appearance.getColorScheme() === 'dark');
   const [activeTab, setActiveTab] = useState('Summary'); 
@@ -111,6 +112,7 @@ const ModuleCategoryScreen = ({ navigation }) => {
     setUser(null);
   };
 
+  {/* Paths to the analysis images */}
   const imageMapping = {
     'Computational-Thinking-for-Problem-Solving_Exams': {
       emotion: require('../images/analysis_plots_topic_module/emotion_timeseries_Computational-Thinking-for-Problem-Solving_Exams.png'),
@@ -257,6 +259,8 @@ const ModuleCategoryScreen = ({ navigation }) => {
     emotion: require('../images/analysis_plots_topic_module/emotion_timeseries_Programming-for-Everybody-Getting-Started-with-Python_Course-Material.png'),
     sentiment: require('../images/analysis_plots_topic_module/sentiment_timeseries_Programming-for-Everybody-Getting-Started-with-Python_Course-Material.png'),
   },
+
+  // Add other modules here following the same pattern...
   
   'Programming-Languages-Part-A_Exams': {
     emotion: require('../images/analysis_plots_topic_module/emotion_timeseries_Programming-Languages-Part-A_Exams.png'),
@@ -1662,7 +1666,7 @@ const ModuleCategoryScreen = ({ navigation }) => {
   );
 };
 
-
+// Styles
 const styles = StyleSheet.create({
   container: { flex: 1 },
   containerLight: { backgroundColor: '#ffffff' },
@@ -1734,4 +1738,5 @@ const styles = StyleSheet.create({
   },
 });
 
+// Export the component
 export default ModuleCategoryScreen;

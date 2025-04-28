@@ -10,123 +10,86 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,         // Component for rendering lists efficiently
-  TouchableOpacity, // Component for touch interactions
-  Switch,           // Toggle switch component
-  Image,            // Component for displaying images
-  Appearance,       // API for getting device color scheme preference
-  TextInput,        // Component for text input (search bar)
+  FlatList,
+  TouchableOpacity,
+  Switch,
+  Image,
+  Appearance,
+  TextInput,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native'; // Hook for navigation
-import { useUser } from '../UserContext'; // Custom hook for user context access
-import {
-  addSavedModule,   // API: Add module to student's saved list
-  addTaughtModule,  // API: Add module to teacher's taught list
-  getAllModules     // API: Fetch details for all modules
-} from '../api/apiService'; // Import relevant API functions
+import { useNavigation } from '@react-navigation/native';
+import { UserProvider, useUser } from '../UserContext'; // Import the context
+import { addSavedModule, addTaughtModule, getAllModules } from '../api/apiService'; // Import the new functions
 
-// Import icon library
-import Icon from 'react-native-vector-icons/FontAwesome'; // Using FontAwesome icons
+// Import vector icons
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 /**
  * SearchScreen Component.
  * Renders a search bar and a list of modules, allowing users to filter and interact.
  */
 const SearchScreen = () => {
-  // --- State Variables ---
-  const [darkMode, setDarkMode] = useState(Appearance.getColorScheme() === 'dark'); // Dark mode state
-  const [searchQuery, setSearchQuery] = useState(''); // State for the search input text
-  const [modules, setModules] = useState([]); // State to hold all fetched module data
-  const navigation = useNavigation(); // Navigation object
-  const { user, setUser } = useUser(); // Access user context
+  const [darkMode, setDarkMode] = useState(Appearance.getColorScheme() === 'dark');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [modules, setModules] = useState([]);
+  const navigation = useNavigation();
+  const { user, setUser } = useUser(); // Access user and setUser from context
 
-  // --- Effect for Initial Data Fetch ---
-  // Fetches all modules when the component mounts.
+  // Fetch all modules from the API
   useEffect(() => {
-    /** Fetches all module data from the API. */
     const fetchModules = async () => {
       try {
-        console.log("Fetching all modules for SearchScreen...");
-        const modulesData = await getAllModules(); // Call API function
-        setModules(modulesData); // Store fetched data in state
-        console.log(`Fetched ${modulesData.length} modules.`);
+        const modulesData = await getAllModules(); // Fetch modules
+        setModules(modulesData);  // Set the modules state
       } catch (error) {
-        console.error("Failed to fetch modules:", error);
-        setModules([]); // Set to empty array on error
+        console.error("Failed to fetch modules", error);
       }
     };
 
     fetchModules();
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
-  // --- Event Handlers ---
-
-  /** Toggles the dark mode state. */
+  // handles dark mode toggle
   const toggleDarkMode = () => {
     setDarkMode((prev) => !prev);
   };
 
-  /**
+   /**
    * Navigates to the ModulePageScreen with details of the selected module.
    * @param {object} item - The module object selected by the user.
    */
   const handleVisitModulePage = (item) => {
-    console.log(`Navigating to Module Page for: ${item.name}`);
-    console.log("Analysis Refs:", item.analysis_refs); // Log analysis references if needed
-    navigation.navigate('ModulePage', { module: item }); // Navigate with module data
+    navigation.navigate('ModulePage', { module: item });
+    console.log(item.analysis_refs);
   };
 
-  /** Handles user logout. */
   const handleLogout = () => {
-    console.log("Logging out user locally.");
-    setUser(null); // Clear user state in context
+    setUser(null);  // This will trigger the logout and navigate to Login screen
   };
 
-  /**
-   * Handles adding a module to the appropriate user list (Saved or Taught).
-   * Calls the relevant API function based on the user's role.
-   * @param {object} module - The module object to add.
-   */
-  const handleAddModule = async (module) => {
-     // Guard clause: ensure module and module.name exist
-    if (!module || !module.name) {
-      console.error("Module data is invalid.");
-      return;
-    }
-    console.log(`Handling add module: ${module.name} for role: ${user?.role}`);
-
-    if (user?.role === 'Student') {
-      try {
-        await addSavedModule(module.name); // Call API for student
-        console.log(`Student saved module: ${module.name}`);
-        alert(`"${module.name}" added to your Saved Modules!`); // User feedback
-      } catch (error) {
-        console.error('Error adding module to saved list:', error.response ? error.response.data : error.message);
-         alert(`Failed to add "${module.name}" to saved list.`); // Error feedback
-      }
-    } else if (user?.role === 'Teacher') {
-      try {
-        await addTaughtModule(module.name); // Call API for teacher
-        console.log(`Teacher added module to taught list: ${module.name}`);
-         alert(`"${module.name}" added to your Taught Modules!`); // User feedback
-      } catch (error) {
-        console.error('Error adding module to taught list:', error.response ? error.response.data : error.message);
-         alert(`Failed to add "${module.name}" to taught list.`); // Error feedback
-      }
-    } else {
-        console.warn("User role not recognized or user not logged in. Cannot add module.");
-        alert("You must be logged in as a Student or Teacher to add modules.");
-    }
-  };
-
-  // --- Filtering Logic ---
-  // Filter the `modules` state based on the current `searchQuery`.
-  // Matches module names case-insensitively.
+  // Filter modules based on the search query
   const filteredModules = modules.filter((module) =>
     module.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // --- Render Function for Module Cards ---
+  // Handle adding module logic based on user role
+  const handleAddModule = async (module) => {
+    if (user?.role === 'Student') {
+      try {
+        await addSavedModule(module.name); // Add to student's saved list
+        console.log(`Student added module: ${module.name}`);
+      } catch (error) {
+        console.error('Error adding module to saved list:', error);
+      }
+    } else if (user?.role === 'Teacher') {
+      try {
+        await addTaughtModule(module.name); // Add to teacher's taught list
+        console.log(`Teacher added module to teaching list: ${module.name}`);
+      } catch (error) {
+        console.error('Error adding module to taught list:', error);
+      }
+    }
+  };
 
   /**
    * Renders a single module card component within the FlatList.
@@ -135,105 +98,104 @@ const SearchScreen = () => {
    * @returns {JSX.Element} The JSX element representing the module card.
    */
   const renderModuleCard = ({ item }) => {
-    // Safely parse topics string into an array
-    let parsedTopics = [];
-    try {
-      parsedTopics = typeof item.topics === 'string' ? JSON.parse(item.topics) : (item.topics || []);
-       if (!Array.isArray(parsedTopics)) parsedTopics = [];
-    } catch (e) { parsedTopics = []; }
+        // Parse item.topics if it's a string, otherwise use it as-is (assuming it's already an array)
+        const parsedTopics = typeof item.topics === 'string' ? JSON.parse(item.topics) : item.topics;
+      
+        // Determine the circle color based on outlook
+        let circleColor;
+        if (item.outlook === 'Positive') {
+            circleColor = '#28a745';  // Green for Positive
+        } else if (item.outlook === 'Neutral') {
+            circleColor = '#fd7e14';  // Orange for Neutral
+        } else {
+            circleColor = '#dc3545';  // Red for Negative
+        }
 
-    // Determine outlook circle color
-    let circleColor;
-    switch (item.outlook?.toLowerCase()) {
-      case 'positive': circleColor = '#28a745'; break; // Green
-      case 'neutral': circleColor = '#fd7e14'; break; // Orange
-      case 'negative': circleColor = '#dc3545'; break; // Red
-      default: circleColor = '#6c757d'; // Gray
-    }
+        return (
+          <View style={[styles.card, darkMode ? styles.cardDark : styles.cardLight]}>
+            <View style={styles.moduleHeader}>
+              {/* Circle next to the module title */}
+              <View style={[styles.outlookCircle, { backgroundColor: circleColor }]} />
+              <Text style={[styles.moduleName, darkMode ? styles.textDark : styles.textLight]}>
+                {item.name}
+              </Text>
+            </View>
 
-    return (
-      <View style={[styles.card, darkMode ? styles.cardDark : styles.cardLight]}>
-        {/* Card Header */}
-        <View style={styles.moduleHeader}>
-          <View style={[styles.outlookCircle, { backgroundColor: circleColor }]} />
-          <Text style={[styles.moduleName, darkMode ? styles.textDark : styles.textLight]} numberOfLines={1} ellipsizeMode="tail">
-            {item.name}
-          </Text>
-        </View>
-
-        {/* Card Details Sections */}
-        <View style={styles.section}>
-          <Icon name="bullseye" size={16} color={darkMode ? '#aaa' : '#555'} style={styles.iconStyle}/>
-          <Text style={[styles.detailText, darkMode ? styles.textDark : styles.textLight]}>Outlook: {item.outlook || 'N/A'}</Text>
-        </View>
-        <View style={styles.section}>
-          <Icon name="thumbs-up" size={16} color={darkMode ? '#aaa' : '#555'} style={styles.iconStyle}/>
-          <Text style={[styles.detailText, darkMode ? styles.textDark : styles.textLight]}>Positive: {item.positive || 'N/A'}</Text>
-        </View>
-        <View style={styles.section}>
-          <Icon name="thumbs-down" size={16} color={darkMode ? '#aaa' : '#555'} style={styles.iconStyle}/>
-          <Text style={[styles.detailText, darkMode ? styles.textDark : styles.textLight]}>Negative: {item.negative || 'N/A'}</Text>
-        </View>
-        <View style={styles.section}>
-          <Icon name="tags" size={16} color={darkMode ? '#aaa' : '#555'} style={styles.iconStyle}/>
-          <Text style={[styles.detailText, darkMode ? styles.textDark : styles.textLight]}>Category: {item.categories || 'N/A'}</Text>
-        </View>
-        <View style={styles.section}>
-          <Icon name="book" size={16} color={darkMode ? '#aaa' : '#555'} style={styles.iconStyle}/>
-          <Text style={[styles.detailText, darkMode ? styles.textDark : styles.textLight]} numberOfLines={2}>
-             Topics: {parsedTopics.length > 0 ? parsedTopics.join(', ') : 'No topics listed'}
-          </Text>
-        </View>
-
-        {/* Highlighted Summary Section */}
-        <View style={[styles.summaryContainer, darkMode ? styles.summaryDark : styles.summaryLight]}>
-          <Icon name="clipboard" size={16} color={darkMode ? '#ccc' : '#333'} style={styles.iconStyle}/>
-          <Text style={[styles.summary, darkMode ? styles.textDark : styles.textLight]}>
-             Summary: {item.summary || 'No summary available.'}
-          </Text>
-        </View>
-
-        {/* Visit Module Page Button */}
-        <TouchableOpacity style={styles.button} onPress={() => handleVisitModulePage(item)}>
-           <Icon name="info-circle" size={16} color="#fff" style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>View Details</Text>
-        </TouchableOpacity>
-
-        {/* Conditional Add Module Button */}
-        <TouchableOpacity
-          style={[styles.addButton, darkMode ? styles.addButtonDark : styles.addButtonLight]}
-          onPress={() => handleAddModule(item)}
-        >
-           <Icon name="plus-circle" size={16} color="#fff" style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>
-            {/* Button text depends on user role */}
-            {user?.role === 'Student' ? 'Save Module' : 'Add Taught Module'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+            {/* Module card components and icons */}
+            <View style={styles.section}>
+              <Icon name="bullseye" size={20} color={darkMode ? '#fff' : '#000'} />
+              <Text style={darkMode ? styles.textDark : styles.textLight}>Outlook: {item.outlook}</Text>
+            </View>
+      
+            <View style={styles.section}>
+              <Icon name="thumbs-up" size={20} color={darkMode ? '#fff' : '#000'} />
+              <Text style={darkMode ? styles.textDark : styles.textLight}>Positive Reviews: {item.positive}</Text>
+            </View>
+      
+            <View style={styles.section}>
+              <Icon name="thumbs-down" size={20} color={darkMode ? '#fff' : '#000'} />
+              <Text style={darkMode ? styles.textDark : styles.textLight}>Negative Reviews: {item.negative}</Text>
+            </View>
+      
+            <View style={styles.section}>
+              <Icon name="tags" size={20} color={darkMode ? '#fff' : '#000'} />
+              <Text style={darkMode ? styles.textDark : styles.textLight}>Module Category: {item.categories}</Text>
+            </View>
+      
+            <View style={styles.section}>
+              <Icon name="book" size={20} color={darkMode ? '#fff' : '#000'} />
+              <Text style={darkMode ? styles.textDark : styles.textLight}>
+                Review Topics: {Array.isArray(parsedTopics) ? parsedTopics.join(', ') : 'No topics available'}
+              </Text>
+            </View>
+      
+            {/* Highlighted summary */}
+            <View style={[styles.summaryContainer, darkMode ? styles.summaryDark : styles.summaryLight]}>
+              <Icon name="clipboard" size={20} color={darkMode ? '#fff' : '#000'} />
+              <Text style={[styles.summary, darkMode ? styles.textDark : styles.textLight]}>
+                Feedback Summary: {item.summary}
+              </Text>
+            </View>
+  
+      
+            {/* Visit Module Page Button */}
+            <TouchableOpacity style={styles.button} onPress={() => handleVisitModulePage(item)}>
+              <Text style={styles.buttonText}>Visit Module Page</Text>
+            </TouchableOpacity>
+        
+            {/* Conditional Add Module Button */}
+            <TouchableOpacity 
+              style={[styles.button, { backgroundColor: 'green', marginTop: 10 }]} 
+              onPress={() => handleAddModule(item)}
+            >
+              <Text style={styles.buttonText}>
+                {user?.role === 'Student' ? 'Add Module' : 'Add to Teaching'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }; 
 
   // --- Render Main Screen UI ---
   return (
     <View style={[styles.container, darkMode ? styles.containerDark : styles.containerLight]}>
-      {/* Header Section */}
-      <View style={[styles.header, darkMode ? styles.headerDark : styles.headerLight]}>
+      {/* Header */}
+      <View style={styles.header}>
         {/* Logo */}
         <View style={styles.logoPlaceholder}>
-          <Image
+          <Image 
             source={require('../images/logo.png')}
             style={styles.logo}
-            resizeMode="contain"
+            resizeMode="contain" 
           />
         </View>
-        {/* Search Input */}
+        {/* Search Bar */}
         <TextInput
-          style={[styles.searchInput, darkMode ? styles.searchInputDark : styles.searchInputLight]}
-          placeholder="Search modules..."
-          placeholderTextColor={darkMode ? '#bbb' : '#888'} // Placeholder color based on mode
-          value={searchQuery} // Bind value to state
-          onChangeText={(text) => setSearchQuery(text)} // Update state on text change
+          style={[styles.searchInput, darkMode ? styles.textDark : styles.textLight]}
+          placeholder="Search by module code or name"
+          placeholderTextColor={darkMode ? '#bbb' : '#666'}
+          value={searchQuery}
+          onChangeText={(text) => setSearchQuery(text)}
         />
         {/* Dark Mode Switch */}
         <Switch
@@ -246,250 +208,153 @@ const SearchScreen = () => {
 
       {/* Logout Button */}
       <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-        <Icon name="sign-out" style={styles.logoutIcon} />
-        <Text style={styles.logoutText}>Log Out</Text>
+        <Icon name="arrow-circle-left" style={styles.logoutIcon} />
+        <Text style={styles.logoutText}>Log out</Text>
       </TouchableOpacity>
 
-      {/* Informational Title */}
-      <Text style={[styles.screenTitle, darkMode ? styles.textDark : styles.textLight]}>
-        Explore Modules
-      </Text>
-       <Text style={[styles.screenSubtitle, darkMode ? styles.textDark : styles.textLight]}>
-         {user?.role === 'Student' ? 'Add modules to your Saved list for quick access.' : 'Add modules you teach to your Taught list.'}
+      {/* Title */}
+      <Text style={[styles.headerTitle, darkMode ? styles.textDark : styles.textLight]}>
+        Explore Modules 
+        {user?.role === 'Student' ? ' (Add them to your Saved Modules if you are interested in them!)' : 'Taught Modules (Add them to your Taught Modules if you teach them!)'}
       </Text>
 
-      {/* List of Modules (Filtered) */}
+
+      {/* Saved Modules */}
       <FlatList
-        data={filteredModules} // Use the filtered list based on search query
-        keyExtractor={(item) => `search-mod-${item.id}`} // Unique key for each item
-        renderItem={renderModuleCard} // Function to render each card
-        contentContainerStyle={styles.list} // Style for the list container
-        ListEmptyComponent={ // Component shown if search yields no results or no modules loaded
-            <View style={styles.emptyListContainer}>
-                <Text style={[styles.emptyListText, darkMode ? styles.textDark : styles.textLight]}>
-                     {modules.length === 0 ? "Loading modules..." : "No modules match your search."}
-                </Text>
-                 <Text style={[styles.emptyListSubText, darkMode ? styles.textDark : styles.textLight]}>
-                    {modules.length > 0 && "Try searching for a different module name or code."}
-                </Text>
-            </View>
-        }
+        data={filteredModules}
+        keyExtractor={(item) => item.id}
+        renderItem={renderModuleCard}
+        contentContainerStyle={styles.list}
       />
     </View>
   );
 };
 
 // --- Styles ---
-// StyleSheet definition for the component's UI elements.
 const styles = StyleSheet.create({
   container: {
-    flex: 1, // Occupy full screen
+    flex: 1,
   },
   containerLight: {
-    backgroundColor: '#f8f9fa', // Light background
+    backgroundColor: '#ffffff',
   },
   containerDark: {
-    backgroundColor: '#121212', // Dark background
+    backgroundColor: '#121212',
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center', // Align vertically
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    paddingTop: Platform.OS === 'android' ? 30 : 10, // Adjust for status bar
+    alignItems: 'center',
+    padding: 10,
     borderBottomWidth: 1,
+    borderColor: '#ccc',
   },
-   headerLight: {
-     borderColor: '#e0e0e0',
-     backgroundColor: '#ffffff',
-  },
-  headerDark: {
-     borderColor: '#333',
-     backgroundColor: '#1f1f1f',
-  },
-  logoPlaceholder: {
-      width: 40, // Smaller logo in search bar header
-      height: 40,
-      marginRight: 10, // Space between logo and search bar
-  },
+  logoPlaceholder: { width: 100, height: 100, marginRight: 15 },
   logo: {
     width: '100%',
     height: '100%',
   },
   searchInput: {
-    flex: 1, // Allow search bar to take available space
+    flex: 1,
     height: 40,
-    borderRadius: 20, // Rounded search bar
+    borderRadius: 20,
     paddingHorizontal: 15,
-    fontSize: 15,
-    marginRight: 10, // Space between search bar and switch
-    borderWidth: 1, // Add border for visibility
-  },
-  searchInputLight: {
-      backgroundColor: '#f0f0f0',
-      color: '#000',
-      borderColor: '#ccc',
-  },
-  searchInputDark: {
-      backgroundColor: '#333',
-      color: '#fff',
-      borderColor: '#555',
+    backgroundColor: '#f0f0f0',
+    color: '#000',
+    marginRight: 10,
   },
   list: {
-    padding: 15, // Padding around the list content
+    padding: 10,
   },
-  card: { // Style for each module card
-    borderRadius: 8,
+  card: {
+    borderRadius: 10,
     padding: 15,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
   },
   cardLight: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f9f9f9',
   },
   cardDark: {
     backgroundColor: '#1f1f1f',
-    borderColor: '#333',
-    borderWidth: 1,
-  },
-  moduleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  outlookCircle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
   },
   moduleName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    flexShrink: 1,
+    marginBottom: 10,
   },
-  section: { // Style for each detail row
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-   iconStyle: {
-      marginRight: 10,
-  },
-   detailText: {
-      fontSize: 14,
-      flexShrink: 1,
-  },
-  summaryContainer: {
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 5,
+  stats: {
     marginBottom: 10,
   },
   summary: {
     fontSize: 14,
+    marginBottom: 15,
   },
-  summaryLight: {
-    backgroundColor: '#eef', // Light summary background
-  },
-  summaryDark: {
-    backgroundColor: '#2a2a3a', // Dark summary background
-  },
-  button: { // Style for 'View Details' button
-    backgroundColor: '#007BFF', // Primary blue
+  button: {
+    backgroundColor: '#007BFF',
     borderRadius: 5,
     paddingVertical: 10,
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
   },
-  addButton: { // Style for 'Add Module / Add Taught' button
-    backgroundColor: '#28a745', // Green color
-    borderRadius: 5,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 10, // Space above add button
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-   addButtonLight: {
-      backgroundColor: '#28a745',
-   },
-    addButtonDark: {
-       backgroundColor: '#218838', // Slightly darker green
-    },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 14,
-  },
-   buttonIcon: {
-      marginRight: 8,
   },
   textLight: {
-    color: '#212529', // Dark text for light mode
+    color: '#000',
   },
-  textDark: {
-    color: '#e0e0e0', // Light text for dark mode
-  },
-  screenTitle: { // Style for the "Explore Modules" title
+  headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 5,
-    textAlign: 'center',
   },
-   screenSubtitle: { // Style for the subtitle below the main title
-    fontSize: 13,
-    color: '#6c757d',
-    textAlign: 'center',
-    marginBottom: 15,
-     marginHorizontal: 20,
+  textDark: {
+    color: '#fff',
   },
   logoutButton: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? 35 : 50, // Adjust top positioning
-    left: 15,
-    zIndex: 10, // Ensure it's above other header elements if necessary
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(108, 117, 125, 0.8)', // Semi-transparent gray
-    paddingVertical: 6,
+    flexDirection: 'row', // Align icon and text horizontally
+    alignItems: 'center', // Center the icon and text vertically
+    backgroundColor: '#FF6347', // Button color (red or orange)
+    paddingVertical: 10,
     paddingHorizontal: 10,
-    borderRadius: 15,
+    borderRadius: 5,
+    marginTop: 10,
+    width: 100,
   },
   logoutIcon: {
-    fontSize: 14,
-    color: '#fff',
-    marginRight: 5,
+    fontSize: 20, // Icon size
+    color: '#fff', // Icon color (white)
+    marginRight: 10, // Space between icon and text
   },
   logoutText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: '#fff', // Text color (white)
+    fontSize: 12, // Text size
+    fontWeight: 'bold', // Bold text
   },
-   emptyListContainer: { // Container for empty list message
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-      marginTop: 50, // Add some top margin
+  moduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  emptyListText: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      textAlign: 'center',
-      marginBottom: 10,
+outlookCircle: {
+    width: 50,
+    height: 70,
+    borderRadius: 5,
+    marginRight: 10,
+    marginBottom: 10,
   },
-  emptyListSubText: {
-      fontSize: 14,
-      textAlign: 'center',
-      color: '#6c757d',
-  }
+moduleName: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  section: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  summaryContainer: {
+    backgroundColor: '#FFFAE3', // Highlighted background
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 15,
+  },
+  summary: { fontSize: 14, marginBottom: 15 },
+  summaryLight: { backgroundColor: '#FFFAE3' },
+  summaryDark: { backgroundColor: '#333' },
+
 });
 
 // Export the component

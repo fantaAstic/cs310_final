@@ -8,15 +8,15 @@ to initialize the database tables within the Flask application context.
 # Import the Flask-SQLAlchemy extension.
 # Flask-SQLAlchemy simplifies using SQLAlchemy with Flask applications by handling
 # session management, configuration, and integration with the Flask app context.
-from flask_sqlalchemy import SQLAlchemy
 
+from flask_sqlalchemy import SQLAlchemy
 # Create a global SQLAlchemy database instance.
 # This instance will be used throughout the application to interact with the database,
 # define models, and perform queries. It's initialized without an app here,
 # and will be bound to the Flask app later using `init_app`.
+
 db = SQLAlchemy()
 
-# Function to initialize the database with the Flask application.
 def init_db(app):
     """
     Initialize the SQLAlchemy database instance and create database tables.
@@ -33,7 +33,6 @@ def init_db(app):
     # (like SQLALCHEMY_DATABASE_URI) and manages database sessions
     # tied to the application context.
     db.init_app(app)
-
     # Create an application context.
     # Operations that interact with the database (like creating tables)
     # often require access to the application's configuration and resources,

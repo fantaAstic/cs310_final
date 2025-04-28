@@ -6,44 +6,34 @@
  */
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator, // Used to show loading state
-  Platform // Although imported, not directly used in this snippet
-} from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker'; // Component for dropdown selection
-import { registerUser, loginUser } from '../api/apiService'; // API functions for authentication
-import { useNavigation } from '@react-navigation/native'; // Hook for accessing navigation actions
-import AsyncStorage from '@react-native-async-storage/async-storage'; // For storing user data locally
-import { useUser } from '../UserContext'; // Custom hook to access user context
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import DropDownPicker from 'react-native-dropdown-picker';
+import { registerUser, loginUser } from '../api/apiService';
+import { useNavigation } from '@react-navigation/native'; // Importing useNavigation hook
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserProvider, useUser } from '../UserContext'; // Import the context
 
 /**
  * LoginRegisterScreen Component.
  * Renders the UI for login and registration forms.
  */
 const LoginRegisterScreen = () => {
-  // --- State Variables ---
-  // State for user input fields in the registration form
-  const [name, setName] = useState(''); // User's full name
-  const [email, setEmail] = useState(''); // User's email address
-  const [password, setPassword] = useState(''); // User's password
-  const [isStudent, setIsStudent] = useState(true); // Toggle between Student/Teacher role (true = Student)
-  const [yearOfStudy, setYearOfStudy] = useState(null); // Selected year of study (for students)
-  // State for managing component behavior
-  const [loading, setLoading] = useState(false); // Indicates if an API request is in progress
-  const [errorMessage, setErrorMessage] = useState(''); // Stores error messages to display to the user
-  const [isLogin, setIsLogin] = useState(false); // Toggles between Login and Sign Up modes (false = Sign Up)
-  const [open, setOpen] = useState(false); // State for controlling the DropDownPicker's open/closed status
+  // Collect userData from the register form
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isStudent, setIsStudent] = useState(true);
+  const [yearOfStudy, setYearOfStudy] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLogin, setIsLogin] = useState(false);
+  const [open, setOpen] = useState(false);  // Initialise 'open' state for DropDownPicker
+  
 
   // --- Context and Navigation ---
   // Access user state and the function to update it from UserContext
-  const { setUser } = useUser();
-  // Get navigation object to navigate to other screens upon successful login/registration
-  const navigation = useNavigation(); // Note: Navigation isn't explicitly used after login/signup in handleSubmit anymore
+  const { user, setUser } = useUser(); // Access user and setUser from context
+  const navigation = useNavigation(); // Use navigation hook to navigate
 
   /**
    * Handles the form submission for both login and registration.
@@ -51,88 +41,77 @@ const LoginRegisterScreen = () => {
    * updates user state and AsyncStorage on success, and manages loading/error states.
    */
   const handleSubmit = async () => {
-    // Basic input validation
     if (!email || !password || (!isLogin && !name)) {
       setErrorMessage('Please fill out all required fields.');
-      return; // Stop submission if validation fails
+      return;
     }
 
-    setErrorMessage(''); // Clear previous error messages
-    setLoading(true); // Set loading state to true
+    setLoading(true);
 
     try {
-      let response; // Variable to store the API response
-
-      // Log user data before making the API request for debugging
-      console.log('Submitting form data:', {
-        name: isLogin ? undefined : name, // Only include name for registration
+      let response;
+      // Log user data before making the request
+      console.log('Collected user data:', {
+        name,
         email,
         password,
-        role: isLogin ? undefined : (isStudent ? 'Student' : 'Teacher'), // Only include role for registration
-        year: isLogin ? undefined : (isStudent ? yearOfStudy : null), // Only include year for registration
+        role: isStudent ? 'Student' : 'Teacher',
+        year: isStudent ? yearOfStudy : null,
       });
 
-      // Determine whether to call login or register API based on `isLogin` state
       if (isLogin) {
-        // Log the login attempt
+        // Log login attempt
         console.log('Attempting login with email:', email);
-        // Call the login API function
         response = await loginUser({ email, password });
       } else {
-        // Prepare user data object for registration
         const userData = {
           name,
           email,
           password,
-          role: isStudent ? 'Student' : 'Teacher', // Determine role based on state
-          year: isStudent ? yearOfStudy : null, // Include year only if student
+          role: isStudent ? 'Student' : 'Teacher',
+          year: isStudent ? yearOfStudy : null,
         };
-        // Log the registration attempt
+        // Log registration attempt
         console.log('Attempting registration with data:', userData);
-        // Call the register API function
         response = await registerUser(userData);
       }
 
-      // Log the received API response for debugging
+      // Log the response after the request
       console.log('Response from API:', response);
 
-      setLoading(false); // Set loading state back to false
+      setLoading(false);
 
-      // --- Handle API Response ---
-      // Check if the API call was successful (based on `response.success` flag)
-      if (response && response.success && response.user) {
-        console.log("Login/Registration successful!");
+      // Check if the response is successful and handle accordingly
+      if (response.success) {
+        console.log("Login/Registration successful! Navigating to Dashboard.");
 
-        // Prepare the user data object to be stored and set in context
-        const userDataToStore = {
-          id: response.user.id, // Assuming backend returns id
+        // Update the user state with the response data
+        // Update the user state with the response data, including the year
+        const userData = {
           email: response.user.email,
           name: response.user.name,
           role: response.user.role,
-          year: response.user.year, // Include year if provided by backend
+          year: response.user.year,  // Include the 'year' here
         };
 
-        // Persist user data in AsyncStorage for session persistence
-        await AsyncStorage.setItem('user', JSON.stringify(userDataToStore));
-        console.log('User data saved to AsyncStorage.');
+        // Save the user data to AsyncStorage
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
 
-        // Update the global user state using the context's setUser function
-        setUser(userDataToStore);
-        console.log('User state updated in context.');
+        // Set the user in the state (using the context)
+        setUser(userData);
 
-        // Navigation logic is now handled by the root App component based on the user state change.
-        // navigation.navigate('Dashboard'); // No longer needed here directly
-
+        // Navigate to the dashboard (or wherever you need) automatically
+        // navigation.navigate('Dashboard');
       } else {
-        // If the API response indicates failure, display the error message
-        console.log("Login/Registration failed:", response?.message || 'Unknown error');
-        setErrorMessage(response?.message || 'Login/Registration failed. Please check your details.');
+        // Log the failure message
+        console.log("Login/Registration failed:", response.message);
+        setErrorMessage(response.message || 'Something went wrong.');
       }
     } catch (error) {
-      // Handle network errors or other exceptions during the API call
-      setLoading(false); // Ensure loading is turned off on error
-      console.error('API request failed:', error.response ? error.response.data : error.message); // Log detailed error
-      setErrorMessage('An error occurred. Please check your network connection and try again.'); // Set a user-friendly error message
+      setLoading(false);
+      // Log error
+      console.error('Request failed:', error);
+      setErrorMessage('Network error. Please try again later.');
     }
   };
 
@@ -143,17 +122,16 @@ const LoginRegisterScreen = () => {
       <Text style={styles.title}>{isLogin ? 'Login' : 'Sign Up'}</Text>
 
       {/* Display error messages if any */}
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
 
       {/* Email Input */}
       <Text style={styles.label}>Email:</Text>
       <TextInput
         style={styles.input}
         placeholder="Enter your email"
-        keyboardType="email-address" // Set keyboard type for email
-        autoCapitalize="none" // Prevent auto-capitalization
+        keyboardType="email-address"
         value={email}
-        onChangeText={(text) => setEmail(text)} // Update email state on change
+        onChangeText={(text) => setEmail(text)}
       />
 
       {/* Password Input */}
@@ -161,90 +139,75 @@ const LoginRegisterScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="Enter your password"
-        secureTextEntry // Hide password characters
+        secureTextEntry
         value={password}
-        onChangeText={(text) => setPassword(text)} // Update password state on change
+        onChangeText={(text) => setPassword(text)}
       />
 
       {/* Conditional Rendering for Registration Fields */}
-      {!isLogin && ( // Show these fields only when in Sign Up mode
+      {!isLogin && (
         <>
-          {/* Name Input */}
           <Text style={styles.label}>Name:</Text>
           <TextInput
             style={styles.input}
             placeholder="Enter your name"
             value={name}
-            onChangeText={(text) => setName(text)} // Update name state on change
+            onChangeText={(text) => setName(text)}
           />
+        </>
+      )}
 
-          {/* Role Selection (Student/Teacher) */}
-          <Text style={styles.label}>Are you a student or a teacher?</Text>
+      {!isLogin && (
+        <>
+          {/* Teacher Fields */}
+          <Text style={styles.label}>Are you a student or a teacher?</Text> {/* Role Selection (Student/Teacher) */}
           <View style={styles.toggleContainer}>
-            {/* Student Button */}
             <TouchableOpacity
               style={[styles.toggleButton, isStudent ? styles.activeToggle : styles.inactiveToggle]}
-              onPress={() => setIsStudent(true)} // Set role to Student
+              onPress={() => setIsStudent(true)}
             >
               <Text style={isStudent ? styles.activeToggleText : styles.inactiveToggleText}>Student</Text>
             </TouchableOpacity>
-            {/* Teacher Button */}
             <TouchableOpacity
               style={[styles.toggleButton, !isStudent ? styles.activeToggle : styles.inactiveToggle]}
-              onPress={() => setIsStudent(false)} // Set role to Teacher
+              onPress={() => setIsStudent(false)}
             >
               <Text style={!isStudent ? styles.activeToggleText : styles.inactiveToggleText}>Teacher</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Year of Study Dropdown (only for Students) */}
-          {isStudent && (
-            <View style={styles.inputContainer} /* Use inputContainer for consistent spacing */ >
-              <Text style={styles.label}>Year of Study:</Text>
-              <DropDownPicker
-                open={open} // Control dropdown visibility
-                setOpen={setOpen} // Function to toggle dropdown visibility
-                value={yearOfStudy} // Currently selected value
-                setValue={setYearOfStudy} // Function to update selected value state
-                items={[ // Options available in the dropdown
-                  { label: 'First', value: 'First' },
-                  { label: 'Second', value: 'Second' },
-                  { label: 'Third', value: 'Third' },
-                  { label: 'Final', value: 'Final' },
-                ]}
-                placeholder="Select your year"
-                style={styles.dropdown} // Style for the dropdown input itself
-                dropDownContainerStyle={styles.dropdownContainer} // Style for the dropdown options container
-                zIndex={1000} // Ensure dropdown appears above other elements
-                listMode="SCROLLVIEW" // Use ScrollView for dropdown items if needed
-              />
-            </View>
-          )}
         </>
       )}
 
-      {/* Submit Button */}
-      <TouchableOpacity
-        style={[styles.submitButton, loading ? styles.submitButtonDisabled : null]} // Change style when loading
-        onPress={handleSubmit}
-        disabled={loading} // Disable button while loading
-      >
-        {loading ? (
-          // Show loading indicator if loading
-          <ActivityIndicator color="#fff" />
-        ) : (
-          // Show button text based on mode (Login/Register)
-          <Text style={styles.submitButtonText}>
-            {isLogin ? 'Login' : 'Register'}
-          </Text>
-        )}
+      {!isLogin && isStudent && (
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Year of Study:</Text> 
+          {/* Student Fields */}
+          <DropDownPicker
+            open={open}  // Bind the 'open' state here
+            setOpen={setOpen}  // Use the 'setOpen' function to change 'open' state
+            value={yearOfStudy}
+            setValue={setYearOfStudy}
+            items={[
+              { label: 'First', value: 'First' },
+              { label: 'Second', value: 'Second' },
+              { label: 'Third', value: 'Third' },
+              { label: 'Final', value: 'Final' },
+            ]}
+            placeholder="Select your year"
+            style={styles.dropdown}
+            dropDownContainerStyle={styles.dropdownContainer}
+          />
+        </View>
+      )}
+
+      {/* Submit Buttons */}
+      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+        <Text style={styles.submitButtonText}>
+          {loading ? 'Processing...' : isLogin ? 'Login' : 'Register'}
+        </Text>
       </TouchableOpacity>
 
-      {/* Toggle between Login and Sign Up modes */}
-      <TouchableOpacity onPress={() => {
-          setIsLogin(!isLogin); // Toggle the mode
-          setErrorMessage(''); // Clear errors when switching modes
-        }}>
+      <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
         <Text style={styles.toggleText}>
           {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
         </Text>
@@ -254,117 +217,90 @@ const LoginRegisterScreen = () => {
 };
 
 // --- Styles ---
-// StyleSheet definition for the component's UI elements.
 const styles = StyleSheet.create({
   container: {
-    flex: 1, // Take up full screen height
-    padding: 25, // Add padding around the content
-    justifyContent: 'center', // Center content vertically
-    backgroundColor: '#ffffff', // White background
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 28, // Larger title
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 30, // More space below title
+    marginBottom: 20,
     textAlign: 'center',
-    color: '#333', // Darker text color
   },
   label: {
-    fontSize: 14, // Slightly smaller label
-    fontWeight: '600', // Semi-bold label
-    marginBottom: 8, // Space below label
-    color: '#555', // Medium gray text color
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc', // Light gray border
-    borderRadius: 8, // More rounded corners
-    paddingVertical: 12, // More vertical padding
-    paddingHorizontal: 15, // More horizontal padding
-    marginBottom: 18, // Consistent spacing below inputs
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 20,
     fontSize: 16,
-    backgroundColor: '#f9f9f9', // Light background for input
-  },
-  inputContainer: { // Added style for consistent margin below dropdown
-    marginBottom: 18,
   },
   toggleContainer: {
-    flexDirection: 'row', // Arrange buttons horizontally
+    flexDirection: 'row',
     marginBottom: 20,
   },
   toggleButton: {
-    flex: 1, // Make buttons share space equally
-    paddingVertical: 12, // Consistent padding
+    flex: 1,
+    padding: 15,
     alignItems: 'center',
-    borderRadius: 8, // Match input border radius
-    borderWidth: 1, // Add border for clarity
-    borderColor: '#ccc',
+    borderRadius: 5,
+    marginHorizontal: 5,
   },
   activeToggle: {
-    backgroundColor: '#007BFF', // Blue for active state
-    borderColor: '#007BFF',
+    backgroundColor: '#007BFF',
   },
   inactiveToggle: {
-    backgroundColor: '#f0f0f0', // Light gray for inactive state
-    borderColor: '#ccc',
+    backgroundColor: '#f0f0f0',
   },
   activeToggleText: {
-    color: '#fff', // White text for active button
+    color: '#fff',
     fontWeight: 'bold',
-    fontSize: 14,
   },
   inactiveToggleText: {
-    color: '#555', // Gray text for inactive button
-    fontWeight: '600',
-    fontSize: 14,
+    color: '#000',
   },
   dropdown: {
     borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 8, // Match input style
+    borderRadius: 5,
     paddingHorizontal: 10,
-    backgroundColor: '#f9f9f9', // Match input background
-    minHeight: 50, // Ensure consistent height
+    backgroundColor: '#f9f9f9',
   },
   dropdownContainer: {
-    borderColor: '#ccc', // Border for the dropdown options list
-    borderRadius: 8,
+    borderColor: '#ccc',
   },
   submitButton: {
-    marginTop: 15, // Space above submit button
-    backgroundColor: '#28a745', // Green color for submit button
-    paddingVertical: 14, // Button padding
-    borderRadius: 8, // Match input radius
+    marginTop: 20,
+    backgroundColor: '#28a745',
+    paddingVertical: 15,
+    borderRadius: 5,
     alignItems: 'center',
-    shadowColor: '#000', // Add subtle shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#a5d6a7', // Lighter green when disabled
   },
   submitButtonText: {
-    color: '#fff', // White text on button
-    fontSize: 16, // Button text size
+    color: '#fff',
+    fontSize: 18,
     fontWeight: 'bold',
   },
   toggleText: {
-    color: '#007BFF', // Blue color for the toggle link
-    marginTop: 15, // Space above toggle link
+    color: '#0078d4',
+    marginTop: 10,
     textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
   },
   errorText: {
-    color: '#dc3545', // Red color for error messages
+    color: 'red',
     fontSize: 14,
-    marginBottom: 15, // Space below error message
+    marginBottom: 10,
     textAlign: 'center',
-    fontWeight: '600',
   },
 });
 
-// Export the component for use in the application's navigation structure
+// Export the component
 export default LoginRegisterScreen;
